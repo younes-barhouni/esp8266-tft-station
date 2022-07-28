@@ -1,4 +1,4 @@
-// Adafruit GFX Library - Version: Latest
+// Adafruit GFX Library - Version: Latest (1.11.3)
 #include <Adafruit_GFX.h>
 #include <Adafruit_GrayOLED.h>
 #include <Adafruit_SPITFT.h>
@@ -18,7 +18,7 @@
 #include <ESP8266WiFi.h>
 #include <Adafruit_ST7735.h>
 
-#include <WiFiManager.h> //https://github.com/tzapu/WiFiManager
+#include <WiFiManager.h> // V0.16.0  https://github.com/tzapu/WiFiManager
 
 // Color definitions
 #define BLACK 0x0000
@@ -102,7 +102,7 @@ void setup()
     // if it does not connect it starts an access point with the specified name
     // here  "AutoConnectAP"
     // and goes into a blocking loop awaiting configuration
-    wifiManager.autoConnect("manzil");
+    wifiManager.autoConnect("younes");
     // or use this for auto generated name ESP + ChipID
     // wifiManager.autoConnect();
 
