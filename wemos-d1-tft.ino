@@ -102,7 +102,7 @@ void setup()
     // if it does not connect it starts an access point with the specified name
     // here  "AutoConnectAP"
     // and goes into a blocking loop awaiting configuration
-    wifiManager.autoConnect("younes");
+    wifiManager.autoConnect("you.nes-8fi-manager");
     // or use this for auto generated name ESP + ChipID
     // wifiManager.autoConnect();
 
