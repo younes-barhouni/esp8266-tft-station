@@ -1,3 +1,4 @@
+
 // Adafruit GFX Library - Version: Latest (1.11.3)
 #include <Adafruit_GFX.h>
 #include <Adafruit_GrayOLED.h>
@@ -20,6 +21,8 @@
 
 #include <WiFiManager.h> // V0.16.0  https://github.com/tzapu/WiFiManager
 
+#include <RotaryEncoder.h>
+
 // Color definitions
 #define BLACK 0x0000
 #define BLUE 0x001F
@@ -34,6 +37,49 @@
 #define cs D2
 #define dc D3
 #define rst D4
+
+//------------------------Rotary Encoder----------------------------------
+// #define ENC_A D6
+// #define ENC_B D8
+// #define BUTTON D0
+
+// Example for ESP8266 NodeMCU with input signals on pin D5 and D6
+#define PIN_IN1 D5
+#define PIN_IN2 D6
+
+//------------------------touch sensor----------------------------------
+#define TOUCH_PIN D8
+int touchVal = 0;
+int menuPosition = 0;
+
+const int menuSize = 3;
+String menuViews[menuSize];
+
+//------------------------Rotary Encoder----------------------------------
+
+// // Setup a RotaryEncoder with 2 steps per latch for the 2 signal input pins:
+// RotaryEncoder encoder(PIN_IN1, PIN_IN2, RotaryEncoder::LatchMode::TWO03);
+
+// A pointer to the dynamic created rotary encoder instance.
+// This will be done in setup()
+// RotaryEncoder *encoder = nullptr;
+
+// /**
+//  * @brief The interrupt service routine will be called on any change of one of the input signals.
+//  */
+// IRAM_ATTR void checkPosition()
+// {
+//     encoder->tick(); // just call tick() to check the state.
+// }
+int rCounter = 0;
+int currentState;
+int initState;
+
+int angle = 0;
+int aState;
+int aLastState;
+
+//----------------------------------------------------------------
 
 const long utcOffsetInSeconds = 7200; // (GMT time) and an offset of 1 hour ( ==> GMT + 2 time zone) which is equal to 7200 seconds
 
@@ -78,7 +124,42 @@ unsigned long unix_epoch;
 
 void setup()
 {
+
     Serial.begin(115200);
+
+    pinMode(TOUCH_PIN, INPUT_PULLUP);
+
+    pinMode(1, FUNCTION_3);
+    pinMode(3, FUNCTION_3);
+
+    pinMode(1, INPUT);
+    pinMode(3, INPUT);
+
+    aLastState = digitalRead(1);
+
+    // use TWO03 mode when PIN_IN1, PIN_IN2 signals are both LOW or HIGH in latch position.
+    // encoder = new RotaryEncoder(1, 3, RotaryEncoder::LatchMode::TWO03);
+
+    // // register interrupt routine
+    // attachInterrupt(digitalPinToInterrupt(1), checkPosition, CHANGE);
+    // attachInterrupt(digitalPinToInterrupt(3), checkPosition, CHANGE);
+
+    // // Read the initial state of CLK
+    // initState = encoder->getPosition();
+
+    // r.setLeftRotationHandler(showDirection);
+    // r.setRightRotationHandler(showDirection);
+
+    // pinMode(ENC_A, INPUT);
+    // pinMode(ENC_B, INPUT);
+    // attachInterrupt(digitalPinToInterrupt(ENC_A), read_encoder, CHANGE);
+    // attachInterrupt(digitalPinToInterrupt(ENC_B), read_encoder, CHANGE);
+
+    // pinMode(TOUCH_PIN, INPUT);
+    menuViews[0] = "settings";
+    menuViews[1] = "weather";
+    menuViews[2] = "music";
+
     tft.initR(INITR_BLACKTAB); // initialize a ST7735S chip, black tab
     tft.fillScreen(BLACK);
 
@@ -111,12 +192,34 @@ void setup()
     tft.print("connected...yeey");
 
     timeClient.begin();
+
+    // menu
+    MenuChanged();
+    drawOnOFF();
 }
+
+String dir = "";
 
 void loop()
 {
 
-    if (counter == 600) // Get new data every 30 minutes
+    //--------------touch------------------
+    touchVal = digitalRead(TOUCH_PIN);
+
+    if (touchVal == HIGH)
+    {
+        Serial.println("Next!");
+        menuPosition++;
+        Serial.println(menuPosition);
+        if (menuPosition == 3)
+        {
+            menuPosition = 0;
+        }
+
+        MenuChanged();
+    }
+
+    if (counter == 600 && menuViews[menuPosition] == "weather") // Get new data every 30 minutes
     {
         counter = 0;
         getWeatherData();
@@ -126,12 +229,167 @@ void loop()
 
     unix_epoch = timeClient.getEpochTime(); // get UNIX Epoch time
 
-    RTC_display();
+    if (menuViews[menuPosition] == "weather")
+    {
+        RTC_display();
+    }
     // increment counter
     counter++;
-    Serial.println(counter);
-    delay(1000);
+    // Serial.println(counter);
+    // delay(1000);
     // delay(200);    // wait 200ms
+
+    //--------------touch------------------
+
+    // static int pos = 0;
+
+    // encoder->tick(); // just call tick() to check the state.
+
+    // int newPos = encoder->getPosition();
+    // if (pos != newPos)
+    // {
+
+    //     if ((int)(encoder->getDirection()) > 0)
+    //     {
+    //         dir = "left";
+    //     }
+    //     else
+    //     {
+    //         dir = "right";
+    //     }
+    //     // tft.setCursor(16, 136);
+    //     tft.setCursor(15, 50);
+    //     tft.setTextColor(GREEN, BLACK); // set text color to green and black background
+    //     tft.print(newPos);
+
+    //     tft.setCursor(15, 80);
+    //     tft.setTextColor(RED, BLACK); // set text color to green and black background
+    //     tft.print(dir);
+    //     pos = newPos;
+    // } // if
+
+    // encoder_value();
+    compute_angle();
+}
+
+void compute_angle()
+{
+    aState = digitalRead(1);
+
+    if (aState != aLastState)
+    {
+        if (digitalRead(3) != aState)
+        {
+            rCounter++;
+            angle++;
+        }
+        else
+        {
+            rCounter--;
+            angle--;
+        }
+        if (rCounter >= 30)
+        {
+            rCounter = 0;
+        }
+
+        tft.setCursor(15, 110);
+        tft.setTextColor(YELLOW, BLACK); // set text color to green and black background
+        tft.print("Position: ");
+        tft.print(int(angle * (-1.8)));
+        tft.print("deg");
+    }
+    aLastState = aState;
+}
+
+// void encoder_value()
+// {
+//     encoder->tick(); // just call tick() to check the state.
+//     // Read the current state of CLK
+//     currentState = encoder->getPosition();
+//     // If last and current state of CLK are different, then we can be sure that the pulse occurred
+//     if (currentState != initState)
+//     {
+//         // Encoder is rotating counterclockwise so we decrement the counter
+//         if (encoder->getPosition() != currentState)
+//         {
+//             rCounter++;
+//         }
+//         else
+//         {
+//             // Encoder is rotating clockwise so we increment the counter
+//             rCounter--;
+//         }
+//         // print the value in the serial monitor window
+//         tft.setCursor(15, 120);
+//         tft.setTextColor(RED, BLACK); // set text color to green and black background
+//         tft.print(rCounter);
+//     }
+//     // Remember last CLK state for next cycle
+//     initState = currentState;
+// }
+
+void drawOnOFF()
+{
+    String view = menuViews[menuPosition];
+    tft.fillRect(19, 51, 50, 16, BLACK);
+    tft.drawCircle(29, 58, 7, WHITE);
+    tft.drawCircle(49, 58, 7, WHITE);
+    tft.drawLine(29, 51, 49, 51, WHITE);
+    tft.drawLine(29, 65, 49, 65, WHITE);
+    tft.fillRect(30, 52, 18, 13, BLACK);
+    if (view == "settings")
+        tft.fillCircle(49, 58, 4, CYAN);
+    else
+        tft.fillCircle(29, 58, 4, CYAN);
+}
+
+void MenuChanged()
+{
+
+    String view = menuViews[menuPosition];
+    Serial.println(view);
+    if (view == "weather")
+    {
+        /* code */
+        clearScreen();
+        RTC_display();
+        getWeatherData();
+    }
+
+    if (view == "settings")
+    {
+        /* code */
+        clearScreen();
+        DisplaySettingsView();
+        drawOnOFF();
+    }
+    if (view == "music")
+    {
+        /* code */
+        clearScreen();
+        DisplayMusicView();
+        drawOnOFF();
+    }
+}
+
+void DisplayMusicView()
+{
+    tft.setCursor(15, 20);
+    tft.setTextColor(RED, BLACK); // set text color to green and black background
+    tft.print("Let Play Music!");
+
+    tft.setCursor(15, 40);
+    tft.setTextColor(YELLOW, BLACK);
+    tft.print("ON/OFF");
+    tft.print("VOLUME");
+}
+
+void DisplaySettingsView()
+{
+    tft.setCursor(15, 20);
+    tft.setTextColor(CYAN, BLACK); // set text color to green and black background
+    tft.print("Settings!");
 }
 
 void RTC_display()
